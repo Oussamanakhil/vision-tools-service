@@ -1,18 +1,23 @@
-# Small, GPU-capable base with Python 3.10 + CUDA/cuDNN
+# GPU-capable base with Python 3.10 (good for vision tasks)
 FROM runpod/base:0.6.0-cuda11.8.0
 
-# System deps for video/image/ocr
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+# System deps for video/image/OCR
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     ffmpeg \
     tesseract-ocr \
     mediainfo \
- && rm -rf /var/lib/apt/lists/*
+    libsm6 \
+    libxext6 \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy code
+# Workdir
 WORKDIR /app
+
+# Python deps
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# App code
 COPY handler.py .
 
 # Serverless entry
