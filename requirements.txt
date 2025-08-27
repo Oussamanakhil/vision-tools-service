@@ -1,4 +1,7 @@
 runpod
-Pillow
-numpy
 requests
+Pillow
+opencv-python-headless
+pytesseract
+pymediainfo
+numpy
