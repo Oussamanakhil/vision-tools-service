@@ -23,12 +23,12 @@ def task_saliency(image):
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     spectrum = np.fft.fft2(gray)
     log_ampl = np.log(np.abs(spectrum) + 1e-8)
-    avg = cv2.GaussianBlur(log_ampl, (7,7), 0)
+    avg = cv2.GaussianBlur(log_ampl, (7, 7), 0)
     spectral_residual = log_ampl - avg
     saliency = np.abs(np.fft.ifft2(np.exp(spectral_residual + 1j*np.angle(spectrum))))
     saliency = (saliency - saliency.min()) / (saliency.max() - saliency.min() + 1e-8)
     saliency_u8 = (saliency * 255).astype(np.uint8)
-    # return heatmap as base64 PNG
+
     pil = Image.fromarray(saliency_u8)
     buf = io.BytesIO(); pil.save(buf, format="PNG")
     return {"saliency_map_b64": base64.b64encode(buf.getvalue()).decode()}
@@ -41,42 +41,51 @@ def task_ocr(image):
 
 def _save_temp(data_bytes, suffix):
     p = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4().hex}{suffix}")
-    with open(p, "wb") as f: f.write(data_bytes)
+    with open(p, "wb") as f:
+        f.write(data_bytes)
     return p
 
 def task_extract_frames(video, every_n=30, max_frames=50):
     """video: URL or base64; returns JPEG frames as b64 list"""
-    if video.startswith("http"):
+    if isinstance(video, str) and video.startswith("http"):
         data = requests.get(video, timeout=60).content
     else:
         data = base64.b64decode(video)
+
     inpath = _save_temp(data, ".mp4")
-    # extract as sequence of JPEGs
     outdir = tempfile.mkdtemp()
-    # Use ffmpeg to extract every_n-th frame
-    cmd = ["ffmpeg","-i", inpath, "-vf", f"select='not(mod(n\\,{int(every_n)}))'",
-           "-vsync","vfr", os.path.join(outdir, "frame-%05d.jpg")]
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+
+    # extract every_n-th frame -> JPEG files
+    cmd = [
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-i", inpath,
+        "-vf", f"select='not(mod(n\\,{int(every_n)}))'",
+        "-vsync", "vfr",
+        os.path.join(outdir, "frame-%05d.jpg")
+    ]
+    subprocess.run(cmd, check=False)
 
     frames = []
-    for name in sorted(os.listdir(outdir))[:max_frames]:
+    names = sorted([n for n in os.listdir(outdir) if n.lower().endswith(".jpg")])[:max_frames]
+    for name in names:
         with open(os.path.join(outdir, name), "rb") as f:
             frames.append(base64.b64encode(f.read()).decode())
-    return {"frames_b64": frames}
+    return {"frames_b64": frames, "count": len(frames)}
 
 def task_parse_metadata(media):
     """Return container/stream metadata using MediaInfo"""
-    if media.startswith("http"):
+    if isinstance(media, str) and media.startswith("http"):
         data = requests.get(media, timeout=60).content
     else:
         data = base64.b64decode(media)
+
     path = _save_temp(data, ".bin")
     info = MediaInfo.parse(path)
     return {"metadata": json.loads(info.to_json())}
 
-# ---------- handler ----------
+# ---------- RunPod handler ----------
 def handler(event):
-    inp = event.get("input", {})
+    inp = (event or {}).get("input", {}) or {}
     task = inp.get("task")
     try:
         if task == "saliency":
@@ -84,11 +93,18 @@ def handler(event):
         elif task == "ocr":
             return task_ocr(inp["image"])
         elif task == "extract_frames":
-            return task_extract_frames(inp["video"], inp.get("every_n", 30), inp.get("max_frames", 50))
+            return task_extract_frames(
+                inp["video"],
+                inp.get("every_n", 30),
+                inp.get("max_frames", 50),
+            )
         elif task == "parse_metadata":
             return task_parse_metadata(inp["media"])
         else:
-            return {"error": "unknown task", "accepted": ["saliency","ocr","extract_frames","parse_metadata"]}
+            return {
+                "error": "unknown task",
+                "accepted": ["saliency", "ocr", "extract_frames", "parse_metadata"],
+            }
     except Exception as e:
         return {"error": str(e)}
 
