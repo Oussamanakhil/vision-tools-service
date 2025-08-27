@@ -1,25 +1,20 @@
-# Public base image
 FROM python:3.10-slim
 
-# System deps for OpenCV, Tesseract and media probing
+ENV PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1
+
+# (Optional for later) System binaries you’ll eventually need:
+# ffmpeg, tesseract-ocr, mediainfo
+# For the very first test, you can comment this block out.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    tesseract-ocr libtesseract-dev \
-    ffmpeg \
-    libgl1 libglib2.0-0 libsm6 libxext6 \
- && rm -rf /var/lib/apt/lists/*
+    ffmpeg tesseract-ocr mediainfo \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Python deps
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# App code
 COPY . .
 
-# Helpful runtime flags
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
-
-# Start the RunPod serverless worker
-CMD ["python", "-m", "runpod.serverless.worker", "handler.main"]
+# This is the “start command” for RunPod when deploying from GitHub
+CMD ["python","-u","handler.py"]
