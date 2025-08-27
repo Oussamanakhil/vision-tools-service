@@ -1,7 +1,4 @@
 runpod
-opencv-python-headless
-pytesseract
 Pillow
 numpy
-ffmpeg-python
 requests
