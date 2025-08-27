@@ -1,14 +1,20 @@
-# vision-tools-service
-CPU microservice for **saliency**, **OCR**, **video frame extraction**, and **metadata parsing** on RunPod Serverless.
+# Vision Tools Service
 
-## Tasks / Inputs
-- `task: "saliency"` + `image: <url|base64>`
-- `task: "ocr"` + `image: <url|base64>`
-- `task: "extract_frames"` + `video: <url|base64>` (+ optional `every_n`, `max_frames`)
-- `task: "parse_metadata"` + `media: <url|base64>`
+Tasks (single endpoint, RunPod Serverless):
+- `saliency` — returns heatmap (PNG base64)
+- `ocr` — returns text
+- `extract_frames` — returns list of JPEG base64 frames
+- `parse_metadata` — returns MediaInfo JSON
 
-## RunPod
-- **Worker Type:** CPU (e.g., `cpu3c-2-4`)
-- **Start Command:** `python -u handler.py`
-- **Autoscaling:** Min 0, Max 1–2, Autosuspend 5–10 min
-- **Env Vars:** none required
+## Build & Deploy on RunPod
+1. New Endpoint → **Serverless → From Git Repo**
+2. Repo path: this repo, Branch: `main`, Dockerfile path: `Dockerfile`
+3. Worker Type: **GPU** (1 × 16–24 GB), Queue
+4. Disk: 10 GB, Idle Timeout: 5s, Exec Timeout: 600s, FlashBoot: ON
+5. Deploy → copy Endpoint `https://api.runpod.ai/v2/<ID>/run`
+
+## Sample payloads
+
+**Saliency**
+```json
+{"input": {"task": "saliency", "image": "https://.../image.jpg"}}
