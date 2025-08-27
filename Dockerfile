@@ -1,20 +1,19 @@
-FROM python:3.10-slim
+# Small, GPU-capable base with Python 3.10 + CUDA/cuDNN
+FROM runpod/base:0.6.0-cuda11.8.0
 
-ENV PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1
+# System deps for video/image/ocr
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ffmpeg \
+    tesseract-ocr \
+    mediainfo \
+ && rm -rf /var/lib/apt/lists/*
 
-# (Optional for later) System binaries you’ll eventually need:
-# ffmpeg, tesseract-ocr, mediainfo
-# For the very first test, you can comment this block out.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg tesseract-ocr mediainfo \
-    && rm -rf /var/lib/apt/lists/*
-
+# Copy code
 WORKDIR /app
-
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY handler.py .
 
-# This is the “start command” for RunPod when deploying from GitHub
-CMD ["python","-u","handler.py"]
+# Serverless entry
+CMD ["python", "-u", "handler.py"]
